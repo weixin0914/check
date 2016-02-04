@@ -31,7 +31,7 @@ SWEP.HitDistance			= 48
 
 local SwingSound = Sound( "WeaponFrag.Throw" )
 local HitSound = Sound( "Flesh.ImpactHard" )
-
+whatfuckingthisguy = 0
 function SWEP:Initialize()
 
 	self:SetHoldType( "fist" )
@@ -54,12 +54,27 @@ function SWEP:UpdateNextIdle()
 end
 
 function SWEP:PrimaryAttack( right )
-local tr = utilx.GetPlayerTrace(LocalPlayer(), LocalPlayer():GetCursorAimVector())
-local trace = util.TraceLine(tr)
-local Entity = trace.Entity
-				net.Start( "ItemStoreAdminInventory" )
-				net.WriteEntity( Entity )
-				net.SendToServer()
+	
+	if CLIENT then
+		local tr = util.GetPlayerTrace( LocalPlayer() )
+		local trace = util.TraceLine(tr)
+		local Entity = trace.Entity
+		if not IsValid( Entity ) then return end
+		if whatfuckingthisguy +3 < CurTime() then
+		whatfuckingthisguy = CurTime()
+		timer.Simple( 3, function() 
+		MsgN(whatfuckingthisguy , "  " , CurTime())
+			
+			net.Start( "ItemStoreAdminInventory" )
+			net.WriteEntity( Entity )
+			net.SendToServer()
+
+		end )
+				
+		end
+		
+	end
+				
 end
 
 function SWEP:SecondaryAttack()
@@ -67,5 +82,4 @@ function SWEP:SecondaryAttack()
 	self:PrimaryAttack( true )
 
 end
-
 
