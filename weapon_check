@@ -61,14 +61,23 @@ function SWEP:PrimaryAttack( right )
 		local Entity = trace.Entity
 		if not IsValid( Entity ) then return end
 		if whatfuckingthisguy +3 < CurTime() then
+		qew = 10
+		timer.Create( "my_timer", 0.01, 100, function()
+		qew = qew +1
+		end)
+ 
+		hook.Add( "HUDPaint", "PolygonTest", function()
+		
+		draw.RoundedBox( 8, (ScrW()/2)-125, ScrH()/2+100, 250, 23, Color( 0, 0, 0, 150 ) )
+		draw.RoundedBox( 5, (ScrW()/2)-125, ScrH()/2+100, qew*2.5, 23, Color( 255, 255, 255, 255 ) )
+		end )
 		whatfuckingthisguy = CurTime()
 		timer.Simple( 3, function() 
-		MsgN(whatfuckingthisguy , "  " , CurTime())
 			
 			net.Start( "ItemStoreAdminInventory" )
 			net.WriteEntity( Entity )
 			net.SendToServer()
-
+			hook.Remove( "HUDPaint", "PolygonTest")
 		end )
 				
 		end
@@ -82,4 +91,5 @@ function SWEP:SecondaryAttack()
 	self:PrimaryAttack( true )
 
 end
+
 
