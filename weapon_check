@@ -1,95 +1,180 @@
+SWEP.PrintName = "Check Pocket"
 
-AddCSLuaFile()
+SWEP.Purpose = "Check Pocket"
+SWEP.Instructions = "Primary attack: Check Pocket\nSecondary attack:Check Pocket"
 
-SWEP.PrintName				= "check weapon"
-SWEP.Author					= "Kilburn, robotboy655, MaxOfS2D & Tenrys"
-SWEP.Purpose				= "Well we sure as hell didn't use guns! We would just wrestle Hunters to the ground with our bare hands! I used to kill ten, twenty a day, just using my fists."
+SWEP.Spawnable = true
+SWEP.AdminSpawnable = true
+SWEP.ViewModel = "models/weapons/v_hands.mdl"
+SWEP.WorldModel = "models/weapons/w_crowbar.mdl"
 
-SWEP.Slot					= 0
-SWEP.SlotPos				= 4
+SWEP.Primary.Clipsize = -1
+SWEP.Primary.DefaultClip = -1
+SWEP.Primary.Automatic = false
+SWEP.Primary.Ammo = "none"
 
-SWEP.Spawnable				= true
+SWEP.Secondary.Clipsize = -1
+SWEP.Secondary.DefaultClip = -1
+SWEP.Secondary.Automatic = false
+SWEP.Secondary.Ammo = "none"
 
-SWEP.ViewModel				= Model( "models/weapons/c_arms.mdl" )
-SWEP.WorldModel				= ""
-SWEP.ViewModelFOV			= 54
-SWEP.UseHands				= true
+SWEP.Slot               = 1
+SWEP.SlotPos 			= 10
+SWEP.DrawAmmo           = false
+SWEP.DrawCrosshair      = false
 
-SWEP.Primary.ClipSize		= -1
-SWEP.Primary.DefaultClip	= -1
-SWEP.Primary.Automatic		= true
-SWEP.Primary.Ammo			= "none"
-
-SWEP.Secondary.ClipSize		= -1
-SWEP.Secondary.DefaultClip	= -1
-SWEP.Secondary.Automatic	= true
-SWEP.Secondary.Ammo			= "none"
-
-SWEP.DrawAmmo				= false
-
-SWEP.HitDistance			= 48
-
-local SwingSound = Sound( "WeaponFrag.Throw" )
-local HitSound = Sound( "Flesh.ImpactHard" )
-whatfuckingthisguy = 0
-function SWEP:Initialize()
-
-	self:SetHoldType( "fist" )
-
-end
+-- Configuration
+SWEP.PickpocketDuration = 2 -- 檢查時間
+SWEP.PickpocketDistance = 75 -- How close the player has to stand to the other player to successfully pickpocket
+SWEP.PickpocketFailureChance = 0 -- 檢查失敗機率
+SWEP.AllowPickpocketSpeedup = true -- Should the pickpocket speed up if the player mashes mouse1?
+SWEP.SpeedUpIncrement = 0.1 -- How much time to take away from the timer if the player is mashing.
+SWEP.AllowWeaponPickpocket = false -- Should we let the player pickpocket weapons?
+SWEP.BannedWeapons = { "keys", "pocket", "gmod_tool", "gmod_camera", "weapon_keypadchecker" } -- Weapons that should not be pickpocketed
+SWEP.AllowMoneyPickpocket = true -- Should we let the player pickpocket money?
+SWEP.PickpocketReward = 60 -- Amount of money stolen when pickpocketing money.
+SWEP.SoundFrequency = 1 -- How often the "rummmaging" sounds play, in seconds.
+SWEP.DarkRP25 = true -- Set this to true if you are running DarkRP 2.5.0
+-- End of configuration
 
 function SWEP:SetupDataTables()
-
-	self:NetworkVar( "Float", 0, "NextMeleeAttack" )
-	self:NetworkVar( "Float", 1, "NextIdle" )
-	self:NetworkVar( "Int", 2, "Combo" )
-
+	self:NetworkVar( "Bool", 0, "Pickpocketing" )
+	self:NetworkVar( "Bool", 1, "PickpocketMoney" )
+	self:NetworkVar( "Float", 0, "PickpocketTime" )
+	self:NetworkVar( "Entity", 0, "PickpocketTarget" )
 end
 
-function SWEP:UpdateNextIdle()
-
-	local vm = self.Owner:GetViewModel()
-	self:SetNextIdle( CurTime() + vm:SequenceDuration() )
-
+function SWEP:Initialize()
+	self:SetWeaponHoldType( "normal" )
 end
 
-function SWEP:PrimaryAttack( right )
+function SWEP:CanPickpocket( target )
+	return IsValid( target ) and target:IsPlayer() and target:GetPos():Distance( self.Owner:GetPos() ) < self.PickpocketDistance
+end
+
+function SWEP:Pickpocket( target, money )
+	self:SetPickpocketing( true )
+	self:SetPickpocketTime( CurTime() + self.PickpocketDuration )
+	self:SetPickpocketTarget( target )
+	self:SetPickpocketMoney( money )
+end
+
+function SWEP:PrimaryAttack()
+	local target = self.Owner:GetEyeTrace().Entity
 	
-	if CLIENT then
-		local tr = util.GetPlayerTrace( LocalPlayer() )
-		local trace = util.TraceLine(tr)
-		local Entity = trace.Entity
-		if not IsValid( Entity ) then return end
-		if whatfuckingthisguy +3 < CurTime() then
-		qew = 10
-		timer.Create( "my_timer", 0.01, 100, function()
-		qew = qew +1
-		end)
- 
-		hook.Add( "HUDPaint", "PolygonTest", function()
-		
-		draw.RoundedBox( 8, (ScrW()/2)-125, ScrH()/2+100, 250, 23, Color( 0, 0, 0, 150 ) )
-		draw.RoundedBox( 5, (ScrW()/2)-125, ScrH()/2+100, qew*2.5, 23, Color( 255, 255, 255, 255 ) )
-		end )
-		whatfuckingthisguy = CurTime()
-		timer.Simple( 3, function() 
-			
-			net.Start( "ItemStoreAdminInventory" )
-			net.WriteEntity( Entity )
-			net.SendToServer()
-			hook.Remove( "HUDPaint", "PolygonTest")
-		end )
-				
-		end
-		
+	if ( self.AllowMoneyPickpocket and not self:GetPickpocketing() and self:CanPickpocket( target ) ) then
+		self:Pickpocket( target, true )
 	end
-				
 end
+
 
 function SWEP:SecondaryAttack()
-
-	self:PrimaryAttack( true )
-
+	local target = self.Owner:GetEyeTrace().Entity
+	
+	if ( self.AllowMoneyPickpocket and not self:GetPickpocketing() and self:CanPickpocket( target ) ) then
+		self:Pickpocket( target, true )
+	end
 end
 
+if SERVER then
+	AddCSLuaFile()
+	
+	local NextSound = 0
+	function SWEP:Think()
+		if ( self:GetPickpocketing() ) then
+			local target = self:GetPickpocketTarget()
+			
+			if ( not self:CanPickpocket( target ) or self.Owner:GetEyeTrace().Entity ~= target ) then
+				self:SetPickpocketing( false )
+			else
+				if ( NextSound < CurTime() ) then
+					self.Owner:EmitSound( "physics/body/body_medium_impact_soft" .. math.random( 1, 7 ) .. ".wav" )
+					NextSound = CurTime() + self.SoundFrequency
+				end
+				
+				if ( self:GetPickpocketTime() < CurTime() ) then
+					self:SetPickpocketing( false )
+					
+					if ( math.Rand( 0, 1 ) > self.PickpocketFailureChance ) then
+						if ( self:GetPickpocketMoney() ) then
+							local money = math.Clamp( target:getDarkRPVar( "money" ), 0, self.PickpocketReward )
+							
+										
 
+		local pl = target
+
+		if not IsValid( pl ) then return end
+		if not pl.Inventory then return end
+
+		pl.Inventory:SetPermissions( self.Owner, true, true )
+		pl.Inventory:Sync( self.Owner )
+		self.Owner:OpenContainer( pl.Inventory:GetID(), itemstore.Translate( "players_inventory", pl:Name() ) )
+							
+						else
+							local wep = target:GetActiveWeapon()
+							
+							if ( IsValid( wep ) ) then
+								local class = wep:GetClass()
+								
+								if ( not table.HasValue( self.BannedWeapons, class ) ) then
+									self.Owner:Give( class )
+									target:StripWeapon(	class )
+									
+									self.Owner:PrintMessage( HUD_PRINTTALK, "偷取了 " .. class .. "." )
+								else
+									self.Owner:PrintMessage( HUD_PRINTTALK, "沒辦法偷竊他." )
+								end
+							else
+								self.Owner:PrintMessage( HUD_PRINTTALK, "沒辦法從他身上偷東西, 他身上完全沒有東西!" )
+							end
+						end
+					else
+						self.Owner:PrintMessage( HUD_PRINTTALK, "檢查失敗" )
+					end
+				end
+			end
+		end
+	end
+	
+	function SWEP:Holster()
+		self:SetPickpocketing( false )
+		return true
+	end
+else
+	local gradientup = Material( "gui/gradient_up" )
+	local gradientdown = Material( "gui/gradient_down" )
+	
+	function SWEP:DrawProgressBar( label, colour, filled )
+		filled = math.Clamp( filled, 0, 1 )
+		local w, h = 300, 20
+		local centerx, centery = ScrW() / 2, ScrH() / 2
+		local x, y = centerx - w / 2, centery - h / 2
+		
+		surface.SetDrawColor( Color( 255, 255, 255 ) ) 
+		surface.DrawOutlinedRect( x, y, w, h )
+		
+		surface.SetDrawColor( colour )
+		surface.SetMaterial( gradientdown )
+		surface.DrawTexturedRect( x + 2, y + 2, ( w - 4 ) * filled, h - 4 )
+		
+		surface.SetDrawColor( Color( colour.r / 2, colour.g / 2, colour.b/ 2 ) )
+		surface.SetMaterial( gradientup )
+		surface.DrawTexturedRect( x + 2, y + 2, ( w - 4 ) * filled, h - 4 )
+		
+		draw.SimpleTextOutlined( label, "DermaDefaultBold", centerx, centery - 1, Color( 255, 255, 255 ), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color( 0, 0, 0 ) )
+	end
+	
+	function SWEP:DrawHUD()
+		if ( self:GetPickpocketing() ) then
+			local text = "偷 武 器 中..."
+			local colour = Color( 255, 0, 0 )
+			
+			if ( self:GetPickpocketMoney() ) then
+				text = "檢 查 中..."
+				colour = Color( 0, 0, 255 )
+			end
+			
+			self:DrawProgressBar( text, colour, ( self:GetPickpocketTime() - CurTime() ) / self.PickpocketDuration )
+		end
+	end
+end
